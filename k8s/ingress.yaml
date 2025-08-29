@@ -1,0 +1,170 @@
+# 📚 INGRESS ĐƠN GIẢN CHO HỌC TẬP
+# File này định nghĩa cách routing traffic từ internet vào các services trong Kubernetes
+
+# 🌐 PHẦN 1: INGRESS RESOURCE (Phần chính - định nghĩa routing rules)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  namespace: microservices
+  annotations:
+    # Tắt HTTPS redirect để dễ test
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Cho phép CORS để frontend có thể gọi API
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+spec:
+  # Sử dụng nginx ingress controller
+  ingressClassName: nginx
+  
+  # 🔀 ROUTING RULES - Định nghĩa cách route traffic
+  rules:
+  - host: microservices.local  # Domain để truy cập
+    http:
+      paths:
+      # 🖥️ Route tới Frontend (trang web chính)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 3000
+      
+      # 📦 Route tới Order Service API (rewrite /api/orders/... -> /orders/...)
+      - path: /api/orders/?(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: order-service
+            port:
+              number: 3000
+      
+      # 🔔 Route tới Notification Service API (rewrite /api/notifications/... -> /notifications/...)
+      - path: /api/notifications/?(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: notification-service
+            port:
+              number: 3000
+
+
+---
+# 🏠 PHẦN 2: NGINX INGRESS CONTROLLER
+# Đây là bộ điều khiển thực sự xử lý routing
+
+# Tạo namespace riêng cho ingress controller
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+
+---
+# Tạo service account cho nginx controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+
+---
+# Cấp quyền cho nginx controller để đọc ingress rules
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ingress-nginx
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints", "pods", "secrets", "nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "ingressclasses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses/status"]
+  verbs: ["update"]
+
+---
+# Liên kết quyền với service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-nginx
+subjects:
+- kind: ServiceAccount
+  name: ingress-nginx
+  namespace: ingress-nginx
+
+---
+# 🚀 Deploy nginx controller pod
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app: ingress-nginx
+    spec:
+      serviceAccountName: ingress-nginx
+      containers:
+      - name: controller
+        image: registry.k8s.io/ingress-nginx/controller:v1.8.2
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 443
+          name: https
+        args:
+        - /nginx-ingress-controller
+        - --ingress-class=nginx
+        - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+
+---
+# 🌐 Expose nginx controller ra ngoài internet
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  type: LoadBalancer
+  selector:
+    app: ingress-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: https
+    port: 443
+    targetPort: https
+
+---
+# 📋 Định nghĩa IngressClass
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+spec:
+  controller: k8s.io/ingress-nginx
