@@ -1,0 +1,22 @@
+# Pod Disruption Budget để đảm bảo availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-service-pdb
+  namespace: microservices
+spec:
+  minAvailable: 1  # Luôn có ít nhất 1 pod available
+  selector:
+    matchLabels:
+      app: order-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-service-pdb
+  namespace: microservices
+spec:
+  minAvailable: 1  # Luôn có ít nhất 1 pod available
+  selector:
+    matchLabels:
+      app: notification-service 

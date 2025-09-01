@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: microservices
+
+resources:
+  - kafka-statefulset.yaml
+  - order-service-deployment.yaml
+  - notification-service-deployment.yaml
+  - pod-disruption-budget.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/name: microservices
+  app.kubernetes.io/version: v2.0.0
+  app.kubernetes.io/part-of: order-notification-system
+  app.kubernetes.io/component: microservices
+
+images:
+  - name: order-service
+    newTag: latest
+  - name: notification-service
+    newTag: latest
+
+# Cấu hình cho auto scaling
+configMapGenerator:
+  - name: scaling-config
+    literals:
+      - MIN_REPLICAS=2
+      - MAX_REPLICAS=10
+      - CPU_TARGET=70
+      - MEMORY_TARGET=80 
