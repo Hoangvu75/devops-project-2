@@ -1,4 +1,4 @@
-# DevOps Project 2 — Ops Quickstart
+# DevOps Project 2
 
 ## Overview
 Microservices on Kubernetes:
