@@ -8,7 +8,6 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
-    # Load balancing annotations
     nginx.ingress.kubernetes.io/load-balance: "round_robin"
     nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
     nginx.ingress.kubernetes.io/session-affinity: "cookie"
